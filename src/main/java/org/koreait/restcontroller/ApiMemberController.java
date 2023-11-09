@@ -3,14 +3,16 @@ package org.koreait.restcontroller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.koreait.commons.JSONData;
 import org.koreait.entities.Member;
 import org.koreait.repositories.MemberRepository;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.Errors;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
@@ -21,10 +23,17 @@ public class ApiMemberController {
     private final MemberRepository repository;
 
     @GetMapping("/{userId}")
-    public Member info(@PathVariable String userId) {
+    public ResponseEntity<JSONData> info(@PathVariable String userId) {
         Member member = repository.findByUserId(userId);
 
-        return member;
+        JSONData<Member> data = new JSONData<>(member);
+
+        boolean isError = true;
+        if(isError) {
+            throw new RuntimeException("에러 발생!!!");
+        }
+
+        return ResponseEntity.status(data.getStatus()).body(data);
     }
 
     @GetMapping("/list")
@@ -42,5 +51,38 @@ public class ApiMemberController {
     @GetMapping("/test")
     public void test() {
         log.info("테숫후!");
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<Object> login(@RequestBody @Valid RequestLogin form, Errors errors) {
+
+        if(errors.hasErrors()) {
+            String message = errors.getAllErrors().stream()
+                    .map(o -> o.getDefaultMessage())
+                    .collect(Collectors.joining(","));
+
+            throw new RuntimeException(message);
+        }
+
+        log.info(form.toString());
+
+        return ResponseEntity.ok().build();
+
+        /*return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .header("TestHeader","Test")
+                .build();*/
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<JSONData<Object>> errorHandler(Exception e) {
+
+
+        JSONData<Object> data = new JSONData<>();
+        data.setSuccess(false);
+        data.setStatus(HttpStatus.BAD_REQUEST);
+        data.setMessage(e.getMessage());
+
+        return ResponseEntity.status(data.getStatus()).body(data);
     }
 }
